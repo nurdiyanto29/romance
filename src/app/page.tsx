@@ -27,7 +27,8 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
-function titleCase(s = "") {
+// ====== util ======
+function titleCase(s: string = "") {
   return s.replace(
     /\w\S*/g,
     (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
@@ -40,10 +41,14 @@ type Slide = {
   emoji?: string;
 };
 
+// Tipe aman untuk framer-motion v12
+type MotionControls = ReturnType<typeof useAnimation>;
+
 export default function ConfessionStorybook() {
   const [dark, setDark] = useState(false);
-  const [herName, setHerName] = useState("");
-  const [myName, setMyName] = useState("");
+  // Default nama sesuai permintaan
+  const [herName, setHerName] = useState("Tri Eka Wahyuni");
+  const [myName, setMyName] = useState("Muhamad Renald Adrian Putra");
   const [started, setStarted] = useState(false);
   const [idx, setIdx] = useState(0);
   const [accepted, setAccepted] = useState(false);
@@ -121,7 +126,10 @@ export default function ConfessionStorybook() {
   // Tombol Tolak yang lari
   const rejectCtrls = useAnimation();
   const rejectAreaRef = useRef<HTMLDivElement | null>(null);
-  const [rejectPos, setRejectPos] = useState({ x: 0, y: 0 });
+  const [rejectPos, setRejectPos] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
 
   const moveReject = async () => {
     const box = rejectAreaRef.current;
@@ -287,7 +295,6 @@ export default function ConfessionStorybook() {
                   setAccepted(true);
                   toast.success("Dia menekan Terima. Bab baru dimulai. ❤️");
                 }}
-                // ✅ Tipe ref dilonggarkan di EndChapter agar build lulus
                 rejectAreaRef={rejectAreaRef}
                 onAreaMove={onAreaMove}
                 rejectCtrls={rejectCtrls}
@@ -425,12 +432,11 @@ function EndChapter({
   moveReject,
 }: {
   onAccept: () => void;
-  // ✅ Perbaikan tipe agar kompatibel dengan useRef<HTMLDivElement | null>(...)
   rejectAreaRef:
     | React.RefObject<HTMLDivElement | null>
     | React.MutableRefObject<HTMLDivElement | null>;
   onAreaMove: React.MouseEventHandler<HTMLDivElement>;
-  rejectCtrls: any;
+  rejectCtrls: MotionControls;
   rejectPos: { x: number; y: number };
   moveReject: () => Promise<void>;
 }) {
@@ -461,16 +467,11 @@ function EndChapter({
         <XCircle className="inline-block w-4 h-4 mr-1" />
         Tolak
       </motion.button>
-
-      <p className="w-full text-center text-xs opacity-70 mt-10">
-        Jika tombol Tolak didekati, dia akan menghindar. Hanya tombol Terima
-        yang bisa ditekan.
-      </p>
     </div>
   );
 }
 
-/* =================== Accepted View =================== */
+/* =================== Accepted View (romantic animation) =================== */
 function AcceptedView({
   herName,
   myName,
@@ -478,29 +479,149 @@ function AcceptedView({
   herName: string;
   myName: string;
 }) {
+  // generate kelopak & hearts
+  const petals = useMemo(
+    () =>
+      Array.from({ length: 14 }).map((_, i) => ({
+        id: i,
+        left: Math.random() * 100, // %
+        delay: Math.random() * 1.2,
+        duration: 6 + Math.random() * 4,
+        scale: 0.7 + Math.random() * 0.8,
+        rotate: (Math.random() > 0.5 ? 1 : -1) * (20 + Math.random() * 40),
+      })),
+    []
+  );
+
+  const hearts = useMemo(
+    () =>
+      Array.from({ length: 6 }).map((_, i) => ({
+        id: i,
+        x: (i - 2.5) * 26,
+        delay: i * 0.08,
+      })),
+    []
+  );
+
   return (
-    <Card className="bg-white/80 backdrop-blur border-rose-100/60">
+    <Card className="bg-white/80 backdrop-blur border-rose-100/60 overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Heart className="w-5 h-5 text-rose-500" />
           Bab Baru Dimulai
         </CardTitle>
         <CardDescription>
-          Selamat. {titleCase(herName || "Dia")} menekan Terima.
+          Selamat. {titleCase(herName || "Dia")} menekan Terima.{" "}
+          {titleCase(myName || "Kamu")} & {titleCase(herName || "Dia")} resmi
+          membuka bab yang lebih manis.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="rounded-2xl border bg-gradient-to-br from-rose-50 to-white p-4">
+
+      <CardContent className="relative">
+        {/* romantic gradient halo */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="absolute -inset-6 -z-10"
+        >
+          <div
+            className="w-full h-full blur-3xl opacity-40"
+            style={{
+              background:
+                "radial-gradient(1200px 600px at 50% 0%, #fecdd3 0%, transparent 60%), radial-gradient(900px 500px at 90% 60%, #fda4af 0%, transparent 55%)",
+            }}
+          />
+        </motion.div>
+
+        {/* heart burst */}
+        <div className="flex items-center justify-center py-6">
+          <div className="relative">
+            <motion.div
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: [0.6, 1.08, 1], opacity: 1 }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              className="w-28 h-28 rounded-full bg-gradient-to-br from-rose-400 to-rose-600 shadow-xl"
+              style={{
+                clipPath:
+                  'path("M24 4 C 18 -4, 4 -4, 4 12 C 4 24, 24 32, 24 36 C 24 32, 44 24, 44 12 C 44 -4, 30 -4, 24 4 Z")',
+              }}
+            />
+            {hearts.map((h) => (
+              <motion.div
+                key={h.id}
+                initial={{ opacity: 0, y: 10, x: 0 }}
+                animate={{
+                  opacity: [0, 1, 0],
+                  y: [-10, -50, -90],
+                  x: [0, h.x, h.x],
+                }}
+                transition={{
+                  duration: 1.6,
+                  delay: 0.25 + h.delay,
+                  ease: "easeOut",
+                }}
+                className="absolute left-1/2 top-1/2"
+                style={{ transform: "translate(-50%, -50%)" }}
+              >
+                <Heart className="w-5 h-5 text-rose-500" />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* teks manis */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25 }}
+          className="rounded-2xl border bg-gradient-to-br from-rose-50 to-white p-4"
+        >
           <p className="leading-relaxed">
             Bab berikutnya ditulis bersama. Jaga ritme yang baik, saling
             menghormati, dan tetap jadi diri sendiri.
           </p>
+          <Separator className="my-4" />
+          <p className="text-sm opacity-80">
+            — {myName || "Kamu yang berani jujur"}
+          </p>
+        </motion.div>
+
+        {/* kelopak melayang */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          {petals.map((p) => (
+            <motion.div
+              key={p.id}
+              initial={{ y: -40, rotate: 0, opacity: 0 }}
+              animate={{
+                y: ["-10%", "110%"],
+                rotate: [0, p.rotate, p.rotate * -0.6, p.rotate * 0.4],
+                opacity: [0, 1, 1, 0],
+              }}
+              transition={{
+                duration: p.duration,
+                delay: 0.2 + p.delay,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              className="absolute"
+              style={{ left: `${p.left}%` }}
+            >
+              <div
+                className="w-4 h-4 rounded-full"
+                style={{
+                  background:
+                    "radial-gradient(circle at 30% 30%, #fecdd3 0%, #fda4af 60%, #fb7185 100%)",
+                  filter: "blur(0.3px)",
+                  boxShadow: "0 1px 4px rgba(251,113,133,0.35)",
+                  borderRadius: "60% 40% 60% 40%/60% 40% 60% 40%",
+                }}
+              />
+            </motion.div>
+          ))}
         </div>
-        <Separator />
-        <p className="text-sm opacity-80">
-          — {myName || "Kamu yang berani jujur"}
-        </p>
       </CardContent>
+
       <CardFooter className="justify-end">
         <Button
           className="rounded-full"
