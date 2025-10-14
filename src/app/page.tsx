@@ -86,7 +86,6 @@ export default function ConfessionStorybook() {
           ` berkenan, maukah kita melanjutkan cerita ini... bersama?`,
         emoji: "💌",
       },
-      // Halaman terakhir: ajakan
       {
         title: "Bab Penentu",
         text:
@@ -123,6 +122,7 @@ export default function ConfessionStorybook() {
   const rejectCtrls = useAnimation();
   const rejectAreaRef = useRef<HTMLDivElement | null>(null);
   const [rejectPos, setRejectPos] = useState({ x: 0, y: 0 });
+
   const moveReject = async () => {
     const box = rejectAreaRef.current;
     if (!box) return;
@@ -141,6 +141,7 @@ export default function ConfessionStorybook() {
       transition: { type: "spring", stiffness: 520, damping: 32 },
     });
   };
+
   const onAreaMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
     const radius = 120;
     const btn = e.currentTarget.querySelector(
@@ -280,13 +281,13 @@ export default function ConfessionStorybook() {
             atEnd={atEnd}
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
-            // bagian halaman terakhir
             endSlot={
               <EndChapter
                 onAccept={() => {
                   setAccepted(true);
                   toast.success("Dia menekan Terima. Bab baru dimulai. ❤️");
                 }}
+                // ✅ Tipe ref dilonggarkan di EndChapter agar build lulus
                 rejectAreaRef={rejectAreaRef}
                 onAreaMove={onAreaMove}
                 rejectCtrls={rejectCtrls}
@@ -424,7 +425,10 @@ function EndChapter({
   moveReject,
 }: {
   onAccept: () => void;
-  rejectAreaRef: React.RefObject<HTMLDivElement>;
+  // ✅ Perbaikan tipe agar kompatibel dengan useRef<HTMLDivElement | null>(...)
+  rejectAreaRef:
+    | React.RefObject<HTMLDivElement | null>
+    | React.MutableRefObject<HTMLDivElement | null>;
   onAreaMove: React.MouseEventHandler<HTMLDivElement>;
   rejectCtrls: any;
   rejectPos: { x: number; y: number };
@@ -432,7 +436,7 @@ function EndChapter({
 }) {
   return (
     <div
-      ref={rejectAreaRef}
+      ref={rejectAreaRef as React.RefObject<HTMLDivElement>}
       onMouseMove={onAreaMove}
       className="relative w-full flex items-center justify-center gap-3 py-2"
       style={{ minHeight: 90 }}
@@ -457,6 +461,7 @@ function EndChapter({
         <XCircle className="inline-block w-4 h-4 mr-1" />
         Tolak
       </motion.button>
+
       <p className="w-full text-center text-xs opacity-70 mt-10">
         Jika tombol Tolak didekati, dia akan menghindar. Hanya tombol Terima
         yang bisa ditekan.
