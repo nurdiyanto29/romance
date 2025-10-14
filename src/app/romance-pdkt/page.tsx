@@ -1,24 +1,17 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import React, { useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import {
   Heart,
+  BookOpenText,
   Sparkles,
-  Music,
-  Wand2,
-  Calendar,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  XCircle,
   Flower2,
-  Send,
-  Copy,
-  Stars,
-  Gift,
-  MapPin,
-  Coffee,
-  Sun,
-  Moon,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -27,224 +20,156 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
-// ==========================
-// Helper utilities
-// ==========================
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const titleCase = (s = "") =>
-  s.replace(
+/* ==========================
+ * Helper utilities
+ * ========================== */
+const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+function titleCase(s: string = "") {
+  return s.replace(
     /\w\S*/g,
     (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
   );
+}
 
-const vibes = [
-  { key: "sincere", label: "Sincere", hint: "hangat, jujur, tulus" },
-  { key: "playful", label: "Playful", hint: "ringan, bercanda sopan" },
-  { key: "poetic", label: "Poetic", hint: "puitis, estetik" },
-];
-
-const budgets = ["<50K", "50–100K", "100–200K", "200K+", "Surprise me"];
-
-const interestBank = [
-  "kopi",
-  "buku",
-  "film",
-  "musik",
-  "fotografi",
-  "kuliner",
-  "jalan sore",
-  "pantai",
-  "tanaman",
-  "kucing",
-  "anjing",
-  "drama korea",
-  "olahraga",
-  "museum",
-  "pameran",
-  "board game",
-  "thrift",
-  "pasar kaget",
-];
-
-const poeticOpeners = [
-  "Langit sore hari ini seindah senyummu.",
-  "Kalau kata kompas, semua arah membawaku ke kamu.",
-  "Hening bukan berarti kosong; kadang hanya ingin mendengar degupmu.",
-  "Seandainya kata punya aroma, ucapanku ke kamu pasti wangi melati.",
-];
-
-const sincereOpeners = [
-  "Aku suka caramu memperhatikan hal-hal kecil.",
-  "Kamu bikin hari-hari terasa lebih ringan.",
-  "Ngobrol sama kamu itu rasanya kayak pulang.",
-  "Aku nyaman jadi diri sendiri di dekatmu.",
-];
-
-const playfulOpeners = [
-  "Fun fact: kamu bikin algoritma senyumku overfit.",
-  "Curiga kamu bukan orang biasa; kamu buff mood +200%.",
-  "Boleh nggak aku jadi alasan notif kamu berbunyi?",
-  "Warning: ketemu kamu bikin lupa nugas.",
-];
-
-const dateIdeas = {
-  cheap: [
-    {
-      title: "Sunset Walk",
-      desc: "Jalan sore di taman kota, bawa minuman favorit, foto langit bareng.",
-      icon: Sun,
-    },
-    {
-      title: "Coffee Quest",
-      desc: "Coba warung kopi kecil yang cozy, main 'tebak catatan rasa'.",
-      icon: Coffee,
-    },
-    {
-      title: "Book Swap",
-      desc: "Tukar buku favorit seminggu, kasih sticky notes komentar lucu.",
-      icon: Gift,
-    },
-  ],
-  medium: [
-    {
-      title: "Gallery Hop",
-      desc: "Kunjungi pameran/museum lokal; pilih karya yang 'kamu banget'.",
-      icon: Sparkles,
-    },
-    {
-      title: "Picnic Polaroid",
-      desc: "Picnic sederhana + foto polaroid; tulis caption singkat bergantian.",
-      icon: Flower2,
-    },
-    {
-      title: "Live Music",
-      desc: "Acoustic night; playlist bareng di perjalanan pulang.",
-      icon: Music,
-    },
-  ],
-  premium: [
-    {
-      title: "Hidden Bistro",
-      desc: "Dinner kecil di bistro sepi; bawa kartu 'Q&A lucu'.",
-      icon: Stars,
-    },
-    {
-      title: "City Stroll",
-      desc: "Naik transport umum, turun spontan, cari spot 'kota lama'.",
-      icon: MapPin,
-    },
-    {
-      title: "Workshop Bareng",
-      desc: "Ikut kelas pottery/painting berdua; simpan karyanya.",
-      icon: Wand2,
-    },
-  ],
+type Slide = {
+  title: string;
+  text: string;
+  emoji?: string;
 };
 
-function generateCompliment({ name, vibe, interests = [], intensity = 50 }) {
-  const its = interests.length ? interests : [pick(interestBank)];
-  const openers =
-    vibe === "poetic"
-      ? poeticOpeners
-      : vibe === "playful"
-      ? playfulOpeners
-      : sincereOpeners;
-  const opener = pick(openers);
+// Tipe aman untuk framer-motion v12
+type MotionControls = ReturnType<typeof useAnimation>;
 
-  const lines = [
-    opener,
-    `Aku pengin kenal kamu lebih dekat—apalagi tentang ${its
-      .slice(0, 2)
-      .join(" & ")}.`,
-    intensity > 70
-      ? `Kalau boleh jujur, hatiku makin yakin tiap kali baca pesanmu, ${
-          name || ""
-        }.`
-      : `Mungkin terdengar sederhana, tapi aku suka ritme ngobrol kita, ${
-          name || ""
-        }.`,
-  ].filter(Boolean);
-
-  return lines.join(" \n");
-}
-
-function polishMessage(text, vibe, brevity = 70) {
-  const cleaned = text
-    .replace(/\s+/g, " ")
-    .replace(/(banget|bgt|terlalu|pls|plis)/gi, "")
-    .trim();
-  const tonePrefix =
-    vibe === "poetic"
-      ? "Nada puitis, lembut:"
-      : vibe === "playful"
-      ? "Nada santai & ramah:"
-      : "Nada tulus & hangat:";
-  const shorter =
-    cleaned.length > brevity ? cleaned.slice(0, brevity).trim() + "…" : cleaned;
-  return `${tonePrefix} ${shorter}`;
-}
-
-function pickDateByBudget(budget) {
-  if (budget === "<50K" || budget === "50–100K") return pick(dateIdeas.cheap);
-  if (budget === "100–200K") return pick(dateIdeas.medium);
-  if (budget === "200K+") return pick(dateIdeas.premium);
-  // Surprise me
-  return pick([...dateIdeas.cheap, ...dateIdeas.medium, ...dateIdeas.premium]);
-}
-
-// ==========================
-// Main Component
-// ==========================
-export default function RomancePDKTApp() {
-  const [herName, setHerName] = useState("");
-  const [myName, setMyName] = useState("");
-  const [vibe, setVibe] = useState("sincere");
-  const [budget, setBudget] = useState("Surprise me");
-  const [interests, setInterests] = useState(["kopi", "musik"]);
-  const [intensity, setIntensity] = useState([50]);
-  const [message, setMessage] = useState("");
+/* ==========================
+ * Page
+ * ========================== */
+export default function ConfessionStorybook() {
   const [dark, setDark] = useState(false);
 
-  const compliment = useMemo(
-    () =>
-      generateCompliment({
-        name: titleCase(herName || ""),
-        vibe,
-        interests,
-        intensity: intensity[0],
-      }),
-    [herName, vibe, interests, intensity]
-  );
+  // Default nama sesuai permintaan
+  const [herName, setHerName] = useState("Tri Eka Wahyuni");
+  const [myName, setMyName] = useState("Muhamad Renald Adrian Putra");
 
-  const datePick = useMemo(() => pickDateByBudget(budget), [budget]);
-  const polished = useMemo(
-    () => polishMessage(message || compliment, vibe, 160),
-    [message, compliment, vibe]
-  );
+  const [started, setStarted] = useState(false);
+  const [idx, setIdx] = useState(0);
+  const [accepted, setAccepted] = useState(false);
 
-  const toggleInterest = (it) => {
-    setInterests((prev) =>
-      prev.includes(it) ? prev.filter((x) => x !== it) : [...prev, it]
-    );
+  const slides: Slide[] = useMemo(() => {
+    const name = titleCase(herName || "Kamu");
+    const me = myName || "Aku";
+    return [
+      {
+        title: "Prolog",
+        text:
+          `Setiap cerita punya halaman pertama. Halamanku dimulai ketika aku bertemu dengan ` +
+          name +
+          `. Sejak itu, hal-hal kecil terasa lebih hangat.`,
+        emoji: "📖",
+      },
+      {
+        title: "Halaman 2",
+        text:
+          `Aku suka cara ` +
+          name +
+          ` melihat dunia. Cara tertawa, cara bertanya, dan cara memberi waktu untuk hal-hal sederhana.`,
+        emoji: "✨",
+      },
+      {
+        title: "Halaman 3",
+        text:
+          `Di tengah hari yang bising, percakapan dengan ` +
+          name +
+          ` rasanya seperti tempat pulang. Aku menjadi ` +
+          me +
+          ` yang jujur dan utuh.`,
+        emoji: "🏠",
+      },
+      {
+        title: "Halaman 4",
+        text:
+          `Aku ingin menjaga ritme yang baik: pelan, sopan, saling jaga. Jika ` +
+          name +
+          ` berkenan, maukah kita melanjutkan cerita ini... bersama?`,
+        emoji: "💌",
+      },
+      {
+        title: "Bab Penentu",
+        text:
+          `Ini halaman penting. Jika ` +
+          name +
+          ` siap, tekan Terima untuk menulis bab berikutnya berdua. Jika belum, tidak apa. Aku akan tetap menghormati perasaanmu.`,
+        emoji: "🌹",
+      },
+    ];
+  }, [herName, myName]);
+
+  const atEnd = idx === slides.length - 1;
+  const canPrev = idx > 0;
+  const canNext = idx < slides.length - 1;
+
+  // Swipe (mobile)
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart: React.TouchEventHandler = (e) => {
+    const t = e.changedTouches[0];
+    touch.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd: React.TouchEventHandler = (e) => {
+    if (!touch.current) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touch.current.x;
+    if (Math.abs(dx) > 60) {
+      if (dx < 0 && canNext) setIdx((i) => i + 1);
+      if (dx > 0 && canPrev) setIdx((i) => i - 1);
+    }
+    touch.current = null;
   };
 
-  const copyText = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success("Tersalin! Kirimkan ke dia dengan senyuman 😊");
-    } catch (e) {
-      toast.error("Gagal menyalin. Coba lagi ya.");
-    }
+  // Tombol Tolak yang lari
+  const rejectCtrls = useAnimation();
+  const rejectAreaRef = useRef<HTMLDivElement | null>(null);
+  const [rejectPos, setRejectPos] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+
+  const moveReject = async () => {
+    const box = rejectAreaRef.current;
+    if (!box) return;
+    const r = box.getBoundingClientRect();
+    const pad = 12;
+    const bw = 140;
+    const bh = 44;
+    const maxX = Math.max(0, r.width - bw - pad);
+    const maxY = Math.max(0, r.height - bh - pad);
+    const nx = Math.floor(Math.random() * (maxX + 1));
+    const ny = Math.floor(Math.random() * (maxY + 1));
+    setRejectPos({ x: nx, y: ny });
+    await rejectCtrls.start({
+      x: nx,
+      y: ny,
+      transition: { type: "spring", stiffness: 520, damping: 32 },
+    });
+  };
+
+  const onAreaMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
+    const radius = 120;
+    const btn = e.currentTarget.querySelector(
+      "#reject-btn"
+    ) as HTMLButtonElement | null;
+    if (!btn) return;
+    const br = btn.getBoundingClientRect();
+    const dx = e.clientX - (br.left + br.width / 2);
+    const dy = e.clientY - (br.top + br.height / 2);
+    if (Math.hypot(dx, dy) < radius) void moveReject();
   };
 
   return (
@@ -256,74 +181,70 @@ export default function RomancePDKTApp() {
           : "bg-rose-50 text-neutral-800")
       }
     >
-      {/* Decorative gradient header */}
-      <div className="relative overflow-hidden">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-          className="pointer-events-none absolute inset-0"
-        >
-          <div
-            className="absolute -top-24 -left-20 w-96 h-96 rounded-full blur-3xl opacity-40"
-            style={{
-              background: "radial-gradient(closest-side, #fecdd3, transparent)",
-            }}
-          />
-          <div
-            className="absolute -bottom-24 -right-20 w-[32rem] h-[32rem] rounded-full blur-3xl opacity-40"
-            style={{
-              background: "radial-gradient(closest-side, #fda4af, transparent)",
-            }}
-          />
-        </motion.div>
+      {/* gradients */}
+      <div className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute -top-24 -left-20 w-96 h-96 rounded-full blur-3xl opacity-40"
+          style={{
+            background: "radial-gradient(closest-side, #fecdd3, transparent)",
+          }}
+        />
+        <div
+          className="absolute -bottom-24 -right-20 w-[32rem] h-[32rem] rounded-full blur-3xl opacity-40"
+          style={{
+            background: "radial-gradient(closest-side, #fda4af, transparent)",
+          }}
+        />
+      </div>
 
-        <header className="max-w-5xl mx-auto px-6 pt-16 pb-10">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-2xl bg-white/70 backdrop-blur shadow-sm border border-white/60">
-                <Heart
-                  className={
-                    "w-6 h-6 " + (dark ? "text-rose-300" : "text-rose-500")
-                  }
-                />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-                  Romance PDKT
-                </h1>
-                <p className="text-sm opacity-80">
-                  elegant & sweet toolkit for thoughtful moves
-                </p>
-              </div>
+      <header className="relative max-w-5xl mx-auto px-6 pt-16 pb-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-2xl bg-white/70 backdrop-blur shadow-sm border border-white/60">
+              <Heart
+                className={
+                  dark ? "w-6 h-6 text-rose-300" : "w-6 h-6 text-rose-500"
+                }
+              />
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Sun className="w-4 h-4 opacity-70" />
-                <Switch checked={dark} onCheckedChange={setDark} />
-                <Moon className="w-4 h-4 opacity-70" />
-              </div>
-              <Badge variant="secondary" className="rounded-full">
-                beta
-              </Badge>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+                Confession Storybook
+              </h1>
+              <p className="text-sm opacity-80">
+                Buku cerita romantis—dibaca dari halaman pertama sampai penentu
+              </p>
             </div>
           </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span>Light</span>
+              <Switch checked={dark} onCheckedChange={setDark} />
+              <span>Dark</span>
+            </div>
+            <Badge variant="secondary" className="rounded-full">
+              beta
+            </Badge>
+          </div>
+        </div>
+      </header>
 
-          <div className="mt-8">
-            <Card className="border-rose-100/60 bg-white/70 backdrop-blur">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-rose-500" />
-                  Mulai yang manis, bukan yang lebay
-                </CardTitle>
-                <CardDescription>
-                  Isikan preferensi kecil, biar setiap saran terasa personal &
-                  sopan.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid md:grid-cols-3 gap-4">
+      <main className="relative max-w-5xl mx-auto px-6 pb-20">
+        {!started ? (
+          <Card className="bg-white/80 backdrop-blur border-rose-100/60">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpenText className="w-5 h-5 text-rose-500" />
+                Siapkan Cover Cerita
+              </CardTitle>
+              <CardDescription>
+                Isi nama tokoh utama lalu mulai membaca dari halaman pertama.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
                 <div>
-                  <Label>Namanya</Label>
+                  <Label>Nama dia</Label>
                   <Input
                     placeholder="mis. Dinda"
                     value={herName}
@@ -338,462 +259,444 @@ export default function RomancePDKTApp() {
                     onChange={(e) => setMyName(e.target.value)}
                   />
                 </div>
-                <div>
-                  <Label>Budget Kencan</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {budgets.map((b) => (
-                      <Button
-                        key={b}
-                        type="button"
-                        variant={b === budget ? "default" : "secondary"}
-                        className={
-                          "rounded-full " +
-                          (b === budget ? "bg-rose-500 hover:bg-rose-600" : "")
-                        }
-                        onClick={() => setBudget(b)}
-                      >
-                        {b}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-                <div className="md:col-span-3">
-                  <Label>Vibe</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {vibes.map((v) => (
-                      <Button
-                        key={v.key}
-                        variant={v.key === vibe ? "default" : "outline"}
-                        className={
-                          "rounded-full " +
-                          (v.key === vibe
-                            ? "bg-rose-500 hover:bg-rose-600 text-white border-rose-500"
-                            : "")
-                        }
-                        onClick={() => setVibe(v.key)}
-                      >
-                        {v.label}
-                        <span className="ml-2 text-xs opacity-70">
-                          ({v.hint})
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-                <div className="md:col-span-3">
-                  <Label>Minat dia (klik untuk pilih)</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {interestBank.map((it) => (
-                      <Button
-                        key={it}
-                        type="button"
-                        variant={
-                          interests.includes(it) ? "default" : "secondary"
-                        }
-                        className={
-                          "rounded-full " +
-                          (interests.includes(it)
-                            ? "bg-rose-500 hover:bg-rose-600"
-                            : "")
-                        }
-                        onClick={() => toggleInterest(it)}
-                      >
-                        {titleCase(it)}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className="justify-between flex-wrap gap-4">
-                <div className="w-full md:w-auto">
-                  <Label className="mb-2 block">Intensitas ekspresi</Label>
-                  <div className="flex items-center gap-4 max-w-md">
-                    <Slider
-                      value={intensity}
-                      onValueChange={setIntensity}
-                      min={10}
-                      max={100}
-                      step={10}
-                      className="w-56"
-                    />
-                    <Badge className="rounded-full" variant="outline">
-                      {intensity[0]}%
-                    </Badge>
-                  </div>
-                </div>
-                <div className="text-sm opacity-80">
-                  *Saran otomatis akan menahan kalimat terlalu intens bila
-                  &gt;80%
-                </div>
-              </CardFooter>
-            </Card>
-          </div>
-        </header>
-      </div>
-
-      {/* Content */}
-      <main className="max-w-5xl mx-auto px-6 pb-24">
-        <Tabs defaultValue="compliment" className="w-full">
-          <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full bg-white/60 backdrop-blur rounded-xl">
-            <TabsTrigger
-              value="compliment"
-              className="data-[state=active]:bg-rose-500 data-[state=active]:text-white rounded-lg"
-            >
-              Compliment Studio
-            </TabsTrigger>
-            <TabsTrigger
-              value="date"
-              className="data-[state=active]:bg-rose-500 data-[state=active]:text-white rounded-lg"
-            >
-              DateCraft
-            </TabsTrigger>
-            <TabsTrigger
-              value="petal"
-              className="data-[state=active]:bg-rose-500 data-[state=active]:text-white rounded-lg"
-            >
-              Petal Notes
-            </TabsTrigger>
-            <TabsTrigger
-              value="polish"
-              className="data-[state=active]:bg-rose-500 data-[state=active]:text-white rounded-lg"
-            >
-              Message Polisher
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Compliment Studio */}
-          <TabsContent value="compliment" className="mt-6">
-            <Card className="bg-white/80 backdrop-blur border-rose-100/60">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Heart className="w-5 h-5 text-rose-500" />
-                  Kalimat Pembuka yang Tulus
-                </CardTitle>
-                <CardDescription>
-                  Spesifik, hangat, dan sopan. Hindari hyperbole berlebihan.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <Label>Kamu bisa edit kalau mau</Label>
-                  <Textarea
-                    rows={6}
-                    value={message || compliment}
-                    onChange={(e) => setMessage(e.target.value)}
-                    className="mt-2"
-                  />
-                  <div className="flex items-center gap-2 mt-3">
-                    <Button
-                      onClick={() =>
-                        copyText(
-                          (message || compliment) + "\n— " + (myName || "")
-                        )
-                      }
-                      className="rounded-full"
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Salin
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => setMessage(compliment)}
-                      className="rounded-full"
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                </div>
-                <div>
-                  <Label>Preview</Label>
-                  <Card className="mt-2 border-rose-100/60">
-                    <CardContent className="pt-4">
-                      <div className="font-serif text-lg leading-relaxed whitespace-pre-wrap">
-                        {message || compliment}
-                      </div>
-                      <Separator className="my-4" />
-                      <div className="flex items-center gap-2 text-sm opacity-80">
-                        <Badge variant="outline" className="rounded-full">
-                          {titleCase(vibe)}
-                        </Badge>
-                        <Badge variant="secondary" className="rounded-full">
-                          Interests:{" "}
-                          {interests.slice(0, 3).map(titleCase).join(", ")}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </CardContent>
-              <CardFooter className="justify-between">
-                <div className="text-sm opacity-70">
-                  Tip: sebutkan 1–2 hal spesifik tentang dia; hindari menilai
-                  fisik sensitif.
-                </div>
-                <Button
-                  onClick={() =>
-                    copyText(
-                      `Hai ${titleCase(herName || "")},\n\n${
-                        message || compliment
-                      }\n\n— ${myName || ""}`
-                    )
-                  }
-                  className="rounded-full bg-rose-500 hover:bg-rose-600"
-                >
-                  <Send className="w-4 h-4 mr-2" />
-                  Copy Ajakan
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-
-          {/* DateCraft */}
-          <TabsContent value="date" className="mt-6">
-            <Card className="bg-white/80 backdrop-blur border-rose-100/60">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-rose-500" />
-                  Ide Kencan Manis
-                </CardTitle>
-                <CardDescription>Disesuaikan budget & vibe.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <div className="p-4 rounded-2xl border bg-gradient-to-br from-rose-50 to-white">
-                    <div className="flex items-center gap-3">
-                      <datePick.icon className="w-6 h-6 text-rose-500" />
-                      <h3 className="text-lg font-semibold">
-                        {datePick.title}
-                      </h3>
-                    </div>
-                    <p className="mt-2 text-sm opacity-80">{datePick.desc}</p>
-                    <Separator className="my-4" />
-                    <div className="text-sm">
-                      <p className="font-medium">Ajakan siap kirim:</p>
-                      <p className="mt-2 rounded-xl border p-3 bg-white/70">
-                        Hai {titleCase(herName || "")},{" "}
-                        {vibe === "playful"
-                          ? "gimana kalau"
-                          : vibe === "poetic"
-                          ? "bagaimana kalau"
-                          : "kalau kamu berkenan"}{" "}
-                        kita {datePick.title.toLowerCase()} akhir pekan ini? Aku
-                        pikir ini cocok sama {interests[0] || "kamu"}. 💐
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <Label>Catatan untukmu</Label>
-                  <ul className="mt-2 space-y-2 text-sm">
-                    <li>• Pastikan waktunya nyaman untuk dia.</li>
-                    <li>• Punya rencana cadangan (cuaca/rame).</li>
-                    <li>• Simpan obrolan yang bikin dia nyaman.</li>
-                  </ul>
-                  <div className="flex items-center gap-2 mt-4">
-                    <Button
-                      className="rounded-full"
-                      onClick={() =>
-                        copyText(`Ide: ${datePick.title} — ${datePick.desc}`)
-                      }
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Salin Ide
-                    </Button>
-                    <Button
-                      className="rounded-full bg-rose-500 hover:bg-rose-600"
-                      onClick={() =>
-                        copyText(
-                          `Hai ${titleCase(
-                            herName || ""
-                          )}, kita ${datePick.title.toLowerCase()} bareng? ${
-                            datePick.desc
-                          } \n\n— ${myName || ""}`
-                        )
-                      }
-                    >
-                      <Send className="w-4 h-4 mr-2" />
-                      Copy Ajakan
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Petal Notes */}
-          <TabsContent value="petal" className="mt-6">
-            <Card className="bg-white/80 backdrop-blur border-rose-100/60">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Flower2 className="w-5 h-5 text-rose-500" />
-                  Petal Notes
-                </CardTitle>
-                <CardDescription>
-                  Pesan mini yang kebuka bertahap (3 kelopak).
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-4">
-                  {[0, 1, 2].map((i) => (
-                    <Petal key={i} index={i} vibe={vibe} name={herName} />
-                  ))}
-                </div>
-              </CardContent>
-              <CardFooter className="justify-between">
-                <div className="text-sm opacity-70">
-                  Kirim satu per satu sepanjang hari untuk efek sweet yang
-                  halus.
-                </div>
-                <Button
-                  className="rounded-full"
-                  variant="secondary"
-                  onClick={() =>
-                    copyText(
-                      "Petal Notes: \n1) " +
-                        petalText(vibe, herName, 0) +
-                        "\n2) " +
-                        petalText(vibe, herName, 1) +
-                        "\n3) " +
-                        petalText(vibe, herName, 2)
-                    )
-                  }
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Salin Semua
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-
-          {/* Message Polisher */}
-          <TabsContent value="polish" className="mt-6">
-            <Card className="bg-white/80 backdrop-blur border-rose-100/60">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wand2 className="w-5 h-5 text-rose-500" />
-                  Perhalus Pesan
-                </CardTitle>
-                <CardDescription>
-                  Rapikan kalimatmu dengan vibe pilihan.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <Label>Teks awal</Label>
-                  <Textarea
-                    rows={6}
-                    placeholder="Tulis draf pesanmu di sini"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    className="mt-2"
-                  />
-                  <div className="mt-4">
-                    <Label>Ringkas (0–200)</Label>
-                    <Slider
-                      min={20}
-                      max={200}
-                      step={10}
-                      value={[
-                        Math.min(200, Math.max(20, message?.length || 80)),
-                      ]}
-                      onValueChange={() => {}}
-                    />
-                    <p className="text-xs opacity-70 mt-2">
-                      *Slider pasif agar sesuai aturan: panjang preview
-                      mengikuti draf saat ini.
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <Label>Preview terpolish</Label>
-                  <Card className="mt-2">
-                    <CardContent className="pt-4">
-                      <p className="font-serif leading-relaxed">{polished}</p>
-                      <div className="flex items-center gap-2 mt-4">
-                        <Button
-                          className="rounded-full"
-                          onClick={() => copyText(polished)}
-                        >
-                          <Copy className="w-4 h-4 mr-2" />
-                          Salin Preview
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                <p className="text-xs opacity-70">
+                  Nama akan otomatis dipakai di dalam cerita agar terasa
+                  personal.
+                </p>
+              </div>
+              <div className="rounded-2xl border bg-gradient-to-br from-rose-50 to-white p-4">
+                <p className="text-sm opacity-70 mb-2">Preview Sampul</p>
+                <h3 className="text-xl font-semibold">Cerita Kita</h3>
+                <p className="opacity-80 mt-2">
+                  Diperankan oleh {titleCase(herName || "Kamu")} dan{" "}
+                  {titleCase(myName || "Aku")}.
+                </p>
+                <Separator className="my-4" />
+                <p className="text-sm opacity-80">
+                  Ketuk Mulai untuk membuka halaman pertama.
+                </p>
+              </div>
+            </CardContent>
+            <CardFooter className="justify-end">
+              <Button
+                className="rounded-full bg-rose-500 hover:bg-rose-600"
+                onClick={() => {
+                  setStarted(true);
+                  setIdx(0);
+                }}
+              >
+                <Sparkles className="w-4 h-4 mr-2" /> Mulai Cerita
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : !accepted ? (
+          <StorySlides
+            slides={slides}
+            idx={idx}
+            setIdx={setIdx}
+            canPrev={canPrev}
+            canNext={canNext}
+            atEnd={atEnd}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+            endSlot={
+              <EndChapter
+                onAccept={() => {
+                  setAccepted(true);
+                  toast.success("Dia menekan Terima. Bab baru dimulai. ❤️");
+                }}
+                rejectAreaRef={rejectAreaRef}
+                onAreaMove={onAreaMove}
+                rejectCtrls={rejectCtrls}
+                rejectPos={rejectPos}
+                moveReject={moveReject}
+              />
+            }
+          />
+        ) : (
+          <AcceptedView herName={herName} myName={myName} />
+        )}
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-white/60 bg-white/50 backdrop-blur">
-        <div className="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
-          <p className="text-sm opacity-80">
-            © {new Date().getFullYear()} Romance PDKT — dibuat untuk mendekat
-            pelan, sopan, dan tulus.
-          </p>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="rounded-full">
-              No spam
-            </Badge>
-            <Badge variant="secondary" className="rounded-full">
-              Consent-first
-            </Badge>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
 
-// ==========================
-// Petal Notes subcomponent
-// ==========================
-function petalText(vibe, name, index) {
-  const who = titleCase(name || "kamu");
-  const base = {
-    sincere: [
-      `Pagi, ${who}. Semoga harimu ringan.`,
-      `Barusan kepikiran kamu pas lihat langit cerah.`,
-      `Kalau luang, aku pengin ajak kamu ngobrol sore ini.`,
-    ],
-    playful: [
-      `${who}, update penting: kamu masih juara bikin aku senyum.`,
-      `Ada misi kecil: kirim foto hal yang bikin kamu happy hari ini.`,
-      `Rewardnya: aku traktir es kopi favoritmu. Deal?`,
-    ],
-    poetic: [
-      `${who}, pagi ini seperti kertas kosong; mau kutulis tentangmu.`,
-      `Angin siang bawa kabar: rindu bertemu tatapmu.`,
-      `Malam nanti, izinkan aku jadi jeda yang menenangkan.`,
-    ],
+/* =================== Story Slides =================== */
+function StorySlides({
+  slides,
+  idx,
+  setIdx,
+  canPrev,
+  canNext,
+  atEnd,
+  onTouchStart,
+  onTouchEnd,
+  endSlot,
+}: {
+  slides: Slide[];
+  idx: number;
+  setIdx: (i: number) => void;
+  canPrev: boolean;
+  canNext: boolean;
+  atEnd: boolean;
+  onTouchStart: React.TouchEventHandler;
+  onTouchEnd: React.TouchEventHandler;
+  endSlot: React.ReactNode;
+}) {
+  const slide = slides[idx];
+
+  const variants = {
+    enter: (dir: number) => ({ x: dir > 0 ? 40 : -40, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (dir: number) => ({ x: dir > 0 ? -40 : 40, opacity: 0 }),
   };
-  return base[vibe]?.[index] || base.sincere[index];
+  const [dir, setDir] = useState(1);
+
+  const go = (next: number) => {
+    setDir(next > idx ? 1 : -1);
+    setIdx(next);
+  };
+
+  return (
+    <Card className="bg-white/80 backdrop-blur border-rose-100/60">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-rose-500" />
+          {slide.title}
+        </CardTitle>
+        <CardDescription>
+          Halaman {idx + 1} dari {slides.length}
+        </CardDescription>
+      </CardHeader>
+      <CardContent onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <div className="relative rounded-2xl border bg-gradient-to-br from-rose-50 to-white p-6 min-h-[240px] flex items-center">
+          <div className="absolute top-3 right-4 text-3xl select-none">
+            {slide.emoji}
+          </div>
+          <AnimatePresence mode="wait" custom={dir}>
+            <motion.div
+              key={idx}
+              custom={dir}
+              variants={variants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.28 }}
+              className="w-full"
+            >
+              <p className="leading-relaxed text-lg font-serif whitespace-pre-wrap">
+                {slide.text}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Dots */}
+        <div className="flex items-center justify-center gap-2 mt-4">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              aria-label={`Halaman ${i + 1}`}
+              onClick={() => go(i)}
+              className={
+                "h-2 rounded-full transition-all " +
+                (i === idx ? "w-6 bg-rose-500" : "w-2 bg-rose-200")
+              }
+            />
+          ))}
+        </div>
+      </CardContent>
+      <CardFooter className="flex items-center justify-between gap-2 flex-wrap">
+        <Button
+          variant="secondary"
+          className="rounded-full"
+          disabled={!canPrev}
+          onClick={() => go(idx - 1)}
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" /> Sebelumnya
+        </Button>
+
+        {!atEnd ? (
+          <Button
+            className="rounded-full bg-rose-500 hover:bg-rose-600"
+            disabled={!canNext}
+            onClick={() => go(idx + 1)}
+          >
+            Selanjutnya <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        ) : (
+          endSlot
+        )}
+      </CardFooter>
+    </Card>
+  );
 }
 
-function Petal({ index, vibe, name }) {
-  const [open, setOpen] = useState(false);
-  const text = petalText(vibe, name, index);
+/* =================== End Chapter (Accept / Runaway Reject) =================== */
+function EndChapter({
+  onAccept,
+  rejectAreaRef,
+  onAreaMove,
+  rejectCtrls,
+  rejectPos,
+  moveReject,
+}: {
+  onAccept: () => void;
+  rejectAreaRef:
+    | React.RefObject<HTMLDivElement | null>
+    | React.MutableRefObject<HTMLDivElement | null>;
+  onAreaMove: React.MouseEventHandler<HTMLDivElement>;
+  rejectCtrls: MotionControls;
+  rejectPos: { x: number; y: number };
+  moveReject: () => Promise<void>;
+}) {
   return (
-    <motion.button
-      onClick={() => setOpen((v) => !v)}
-      className={`relative w-full rounded-3xl border p-5 text-left transition ${
-        open ? "bg-rose-50 border-rose-200" : "bg-white hover:bg-rose-50"
-      }`}
-      initial={{ scale: 0.98, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.25, delay: index * 0.05 }}
+    <div
+      ref={rejectAreaRef as React.RefObject<HTMLDivElement>}
+      onMouseMove={onAreaMove}
+      className="relative w-full flex items-center justify-center gap-3 py-2"
+      style={{ minHeight: 90 }}
     >
-      <div className="flex items-center gap-3">
-        <Heart className="w-5 h-5 text-rose-500" />
-        <div className="font-medium">Kelopak {index + 1}</div>
-        <Badge variant="outline" className="ml-auto rounded-full">
-          {open ? "terbuka" : "tertutup"}
-        </Badge>
-      </div>
-      <p className={`mt-3 ${open ? "opacity-100" : "opacity-60"}`}>{text}</p>
-    </motion.button>
+      <Button
+        className="rounded-full bg-rose-500 hover:bg-rose-600 px-6"
+        onClick={onAccept}
+      >
+        <CheckCircle2 className="w-4 h-4 mr-2" /> Terima
+      </Button>
+
+      <motion.button
+        id="reject-btn"
+        type="button"
+        onMouseEnter={moveReject}
+        onFocus={moveReject}
+        onClick={moveReject}
+        animate={rejectCtrls}
+        className="absolute left-4 top-4 select-none rounded-full border px-5 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 shadow-sm"
+        style={{ transform: `translate(${rejectPos.x}px, ${rejectPos.y}px)` }}
+      >
+        <XCircle className="inline-block w-4 h-4 mr-1" />
+        Tolak
+      </motion.button>
+    </div>
+  );
+}
+
+/* =================== Accepted View — Romantic Flower Show =================== */
+function AcceptedView({
+  herName,
+  myName,
+}: {
+  herName: string;
+  myName: string;
+}) {
+  // Kelopak jatuh (ramai tapi elegan)
+  const petals = useMemo(
+    () =>
+      Array.from({ length: 28 }).map((_, i) => {
+        const left = Math.random() * 100; // %
+        const delay = Math.random() * 1.4;
+        const duration = 6 + Math.random() * 5;
+        const scale = 0.7 + Math.random() * 1.1;
+        const rotate =
+          (Math.random() > 0.5 ? 1 : -1) * (25 + Math.random() * 45);
+        return { id: i, left, delay, duration, scale, rotate };
+      }),
+    []
+  );
+
+  // Bunga bermekaran (blossoms)
+  const blossomColors = [
+    "linear-gradient(135deg,#fecaca,#fda4af)",
+    "linear-gradient(135deg,#fde68a,#fca5a5)",
+    "linear-gradient(135deg,#c7d2fe,#fbcfe8)",
+    "linear-gradient(135deg,#bbf7d0,#fbcfe8)",
+  ] as const;
+
+  const blossoms = useMemo(
+    () =>
+      Array.from({ length: 10 }).map((_, i) => {
+        const x = -140 + i * 28 + (Math.random() * 18 - 9);
+        const y = -10 - Math.random() * 12;
+        const delay = 0.15 * i + Math.random() * 0.2;
+        const size = pick([18, 20, 22, 24]);
+        const bg = pick([...blossomColors]);
+        return { id: i, x, y, delay, size, bg };
+      }),
+    []
+  );
+
+  // heart burst kecil-kecil
+  const hearts = useMemo(
+    () =>
+      Array.from({ length: 7 }).map((_, i) => ({
+        id: i,
+        x: (i - 3) * 24,
+        delay: 0.18 * i,
+      })),
+    []
+  );
+
+  return (
+    <Card className="bg-white/80 backdrop-blur border-rose-100/60 overflow-hidden">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Heart className="w-5 h-5 text-rose-500" />
+          Bab Baru Dimulai
+        </CardTitle>
+        <CardDescription>
+          Selamat. {titleCase(herName || "Dia")} menekan Terima.{" "}
+          {titleCase(myName || "Kamu")} & {titleCase(herName || "Dia")} resmi
+          membuka bab yang lebih manis.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="relative">
+        {/* romantic gradient halo */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="absolute -inset-6 -z-10"
+        >
+          <div
+            className="w-full h-full blur-3xl opacity-40"
+            style={{
+              background:
+                "radial-gradient(1200px 600px at 50% 0%, #fecdd3 0%, transparent 60%), radial-gradient(900px 500px at 90% 60%, #fda4af 0%, transparent 55%)",
+            }}
+          />
+        </motion.div>
+
+        {/* Heart core */}
+        <div className="flex items-center justify-center py-8">
+          <div className="relative">
+            <motion.div
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: [0.6, 1.1, 1], opacity: 1 }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              className="w-28 h-28 rounded-full bg-gradient-to-br from-rose-400 to-rose-600 shadow-xl"
+              style={{
+                clipPath:
+                  'path("M24 4 C 18 -4, 4 -4, 4 12 C 4 24, 24 32, 24 36 C 24 32, 44 24, 44 12 C 44 -4, 30 -4, 24 4 Z")',
+              }}
+            />
+
+            {/* Blossom pop-around */}
+            {blossoms.map((b) => (
+              <motion.div
+                key={b.id}
+                initial={{ opacity: 0, scale: 0.2, x: 0, y: 0, rotate: 0 }}
+                animate={{
+                  opacity: [0, 1, 1, 0],
+                  scale: [0.2, 1, 1, 0.8],
+                  x: b.x,
+                  y: b.y,
+                  rotate: 360,
+                }}
+                transition={{
+                  duration: 1.8,
+                  delay: 0.25 + b.delay,
+                  ease: "easeOut",
+                }}
+                className="absolute left-1/2 top-1/2"
+                style={{ transform: "translate(-50%, -50%)" }}
+              >
+                <div
+                  style={{
+                    width: b.size,
+                    height: b.size,
+                    background: b.bg,
+                    borderRadius: "60% 40% 60% 40% / 60% 40% 60% 40%",
+                    boxShadow: "0 3px 10px rgba(253, 164, 175, 0.35)",
+                  }}
+                />
+              </motion.div>
+            ))}
+
+            {/* Small hearts rising */}
+            {hearts.map((h) => (
+              <motion.div
+                key={h.id}
+                initial={{ opacity: 0, y: 8, x: 0 }}
+                animate={{
+                  opacity: [0, 1, 0],
+                  y: [-10, -55, -100],
+                  x: [0, h.x, h.x],
+                }}
+                transition={{
+                  duration: 1.6,
+                  delay: 0.3 + h.delay,
+                  ease: "easeOut",
+                }}
+                className="absolute left-1/2 top-1/2"
+                style={{ transform: "translate(-50%, -50%)" }}
+              >
+                <Heart className="w-5 h-5 text-rose-500" />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* pesan manis */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25 }}
+          className="rounded-2xl border bg-gradient-to-br from-rose-50 to-white p-4"
+        >
+          <p className="leading-relaxed">
+            Bab berikutnya ditulis bersama. Jaga ritme yang baik, saling
+            menghormati, dan tetap jadi diri sendiri.
+          </p>
+          <Separator className="my-4" />
+          <p className="text-sm opacity-80">
+            — {myName || "Kamu yang berani jujur"}
+          </p>
+        </motion.div>
+
+        {/* kelopak melayang meriah */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          {petals.map((p) => (
+            <motion.div
+              key={p.id}
+              initial={{ y: -40, rotate: 0, opacity: 0, scale: p.scale }}
+              animate={{
+                y: ["-8%", "110%"],
+                rotate: [0, p.rotate, p.rotate * -0.6, p.rotate * 0.4],
+                opacity: [0, 1, 1, 0],
+              }}
+              transition={{
+                duration: p.duration,
+                delay: 0.2 + p.delay,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              className="absolute"
+              style={{ left: `${p.left}%` }}
+            >
+              <div
+                className="w-4 h-4"
+                style={{
+                  background:
+                    "radial-gradient(circle at 30% 30%, #fecdd3 0%, #fda4af 60%, #fb7185 100%)",
+                  filter: "blur(0.2px)",
+                  borderRadius: "60% 40% 60% 40% / 60% 40% 60% 40%",
+                  boxShadow: "0 2px 6px rgba(251,113,133,0.35)",
+                }}
+              />
+            </motion.div>
+          ))}
+        </div>
+      </CardContent>
+
+      <CardFooter className="justify-end">
+        <Button
+          className="rounded-full"
+          onClick={() => toast.success("Selamat, semoga langgeng!")}
+        >
+          Simpan Kenangan
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

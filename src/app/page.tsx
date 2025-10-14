@@ -10,6 +10,7 @@ import {
   ArrowRight,
   CheckCircle2,
   XCircle,
+  Flower2,
 } from "lucide-react";
 import {
   Card,
@@ -27,7 +28,11 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
-// ====== util ======
+/* ==========================
+ * Helper utilities
+ * ========================== */
+const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
 function titleCase(s: string = "") {
   return s.replace(
     /\w\S*/g,
@@ -44,11 +49,16 @@ type Slide = {
 // Tipe aman untuk framer-motion v12
 type MotionControls = ReturnType<typeof useAnimation>;
 
+/* ==========================
+ * Page
+ * ========================== */
 export default function ConfessionStorybook() {
   const [dark, setDark] = useState(false);
+
   // Default nama sesuai permintaan
   const [herName, setHerName] = useState("Tri Eka Wahyuni");
   const [myName, setMyName] = useState("Muhamad Renald Adrian Putra");
+
   const [started, setStarted] = useState(false);
   const [idx, setIdx] = useState(0);
   const [accepted, setAccepted] = useState(false);
@@ -471,7 +481,7 @@ function EndChapter({
   );
 }
 
-/* =================== Accepted View (romantic animation) =================== */
+/* =================== Accepted View — Romantic Flower Show =================== */
 function AcceptedView({
   herName,
   myName,
@@ -479,26 +489,49 @@ function AcceptedView({
   herName: string;
   myName: string;
 }) {
-  // generate kelopak & hearts
+  // Kelopak jatuh (ramai tapi elegan)
   const petals = useMemo(
     () =>
-      Array.from({ length: 14 }).map((_, i) => ({
-        id: i,
-        left: Math.random() * 100, // %
-        delay: Math.random() * 1.2,
-        duration: 6 + Math.random() * 4,
-        scale: 0.7 + Math.random() * 0.8,
-        rotate: (Math.random() > 0.5 ? 1 : -1) * (20 + Math.random() * 40),
-      })),
+      Array.from({ length: 28 }).map((_, i) => {
+        const left = Math.random() * 100; // %
+        const delay = Math.random() * 1.4;
+        const duration = 6 + Math.random() * 5;
+        const scale = 0.7 + Math.random() * 1.1;
+        const rotate =
+          (Math.random() > 0.5 ? 1 : -1) * (25 + Math.random() * 45);
+        return { id: i, left, delay, duration, scale, rotate };
+      }),
     []
   );
 
+  // Bunga bermekaran (blossoms)
+  const blossomColors = [
+    "linear-gradient(135deg,#fecaca,#fda4af)",
+    "linear-gradient(135deg,#fde68a,#fca5a5)",
+    "linear-gradient(135deg,#c7d2fe,#fbcfe8)",
+    "linear-gradient(135deg,#bbf7d0,#fbcfe8)",
+  ] as const;
+
+  const blossoms = useMemo(
+    () =>
+      Array.from({ length: 10 }).map((_, i) => {
+        const x = -140 + i * 28 + (Math.random() * 18 - 9);
+        const y = -10 - Math.random() * 12;
+        const delay = 0.15 * i + Math.random() * 0.2;
+        const size = pick([18, 20, 22, 24]);
+        const bg = pick([...blossomColors]);
+        return { id: i, x, y, delay, size, bg };
+      }),
+    []
+  );
+
+  // heart burst kecil-kecil
   const hearts = useMemo(
     () =>
-      Array.from({ length: 6 }).map((_, i) => ({
+      Array.from({ length: 7 }).map((_, i) => ({
         id: i,
-        x: (i - 2.5) * 26,
-        delay: i * 0.08,
+        x: (i - 3) * 24,
+        delay: 0.18 * i,
       })),
     []
   );
@@ -520,7 +553,7 @@ function AcceptedView({
       <CardContent className="relative">
         {/* romantic gradient halo */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.92 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="absolute -inset-6 -z-10"
@@ -534,12 +567,12 @@ function AcceptedView({
           />
         </motion.div>
 
-        {/* heart burst */}
-        <div className="flex items-center justify-center py-6">
+        {/* Heart core */}
+        <div className="flex items-center justify-center py-8">
           <div className="relative">
             <motion.div
               initial={{ scale: 0.6, opacity: 0 }}
-              animate={{ scale: [0.6, 1.08, 1], opacity: 1 }}
+              animate={{ scale: [0.6, 1.1, 1], opacity: 1 }}
               transition={{ duration: 0.7, ease: "easeOut" }}
               className="w-28 h-28 rounded-full bg-gradient-to-br from-rose-400 to-rose-600 shadow-xl"
               style={{
@@ -547,18 +580,52 @@ function AcceptedView({
                   'path("M24 4 C 18 -4, 4 -4, 4 12 C 4 24, 24 32, 24 36 C 24 32, 44 24, 44 12 C 44 -4, 30 -4, 24 4 Z")',
               }}
             />
+
+            {/* Blossom pop-around */}
+            {blossoms.map((b) => (
+              <motion.div
+                key={b.id}
+                initial={{ opacity: 0, scale: 0.2, x: 0, y: 0, rotate: 0 }}
+                animate={{
+                  opacity: [0, 1, 1, 0],
+                  scale: [0.2, 1, 1, 0.8],
+                  x: b.x,
+                  y: b.y,
+                  rotate: 360,
+                }}
+                transition={{
+                  duration: 1.8,
+                  delay: 0.25 + b.delay,
+                  ease: "easeOut",
+                }}
+                className="absolute left-1/2 top-1/2"
+                style={{ transform: "translate(-50%, -50%)" }}
+              >
+                <div
+                  style={{
+                    width: b.size,
+                    height: b.size,
+                    background: b.bg,
+                    borderRadius: "60% 40% 60% 40% / 60% 40% 60% 40%",
+                    boxShadow: "0 3px 10px rgba(253, 164, 175, 0.35)",
+                  }}
+                />
+              </motion.div>
+            ))}
+
+            {/* Small hearts rising */}
             {hearts.map((h) => (
               <motion.div
                 key={h.id}
-                initial={{ opacity: 0, y: 10, x: 0 }}
+                initial={{ opacity: 0, y: 8, x: 0 }}
                 animate={{
                   opacity: [0, 1, 0],
-                  y: [-10, -50, -90],
+                  y: [-10, -55, -100],
                   x: [0, h.x, h.x],
                 }}
                 transition={{
                   duration: 1.6,
-                  delay: 0.25 + h.delay,
+                  delay: 0.3 + h.delay,
                   ease: "easeOut",
                 }}
                 className="absolute left-1/2 top-1/2"
@@ -570,7 +637,7 @@ function AcceptedView({
           </div>
         </div>
 
-        {/* teks manis */}
+        {/* pesan manis */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -587,14 +654,14 @@ function AcceptedView({
           </p>
         </motion.div>
 
-        {/* kelopak melayang */}
+        {/* kelopak melayang meriah */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           {petals.map((p) => (
             <motion.div
               key={p.id}
-              initial={{ y: -40, rotate: 0, opacity: 0 }}
+              initial={{ y: -40, rotate: 0, opacity: 0, scale: p.scale }}
               animate={{
-                y: ["-10%", "110%"],
+                y: ["-8%", "110%"],
                 rotate: [0, p.rotate, p.rotate * -0.6, p.rotate * 0.4],
                 opacity: [0, 1, 1, 0],
               }}
@@ -608,13 +675,13 @@ function AcceptedView({
               style={{ left: `${p.left}%` }}
             >
               <div
-                className="w-4 h-4 rounded-full"
+                className="w-4 h-4"
                 style={{
                   background:
                     "radial-gradient(circle at 30% 30%, #fecdd3 0%, #fda4af 60%, #fb7185 100%)",
-                  filter: "blur(0.3px)",
-                  boxShadow: "0 1px 4px rgba(251,113,133,0.35)",
-                  borderRadius: "60% 40% 60% 40%/60% 40% 60% 40%",
+                  filter: "blur(0.2px)",
+                  borderRadius: "60% 40% 60% 40% / 60% 40% 60% 40%",
+                  boxShadow: "0 2px 6px rgba(251,113,133,0.35)",
                 }}
               />
             </motion.div>
